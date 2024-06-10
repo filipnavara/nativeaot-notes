@@ -58,6 +58,7 @@ Next up, we devised strategies on how to deal with [third-party libraries](https
 
 ## UI frameworks
 
+## Platform support
 
 ## Main project
 
