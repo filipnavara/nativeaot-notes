@@ -34,7 +34,7 @@ Fundamentally, this work is benefiting not just NativeAOT but also the MonoVM AO
 
 ### WinForms
 
-WinForms and NativeAOT are not an officially supported scenario yet. There is an ongoing effort to remove the blockers though. The scope of the work is rather wide though and it's been spaning multiple releases.
+WinForms and NativeAOT are not an officially supported scenario yet. There is an ongoing effort to remove the blockers. The scope of the work is rather wide though and it's been spaning multiple releases.
 
 One of the issues is that the framework relies on non-string resources. These are either deserialized using the binary formatter or the `TypeConverter`s (part of System.ComponentModel). Both approaches are problematic for different reasons. Binary formatter is going through deprecation cycle over last few .NET releases. In .NET 9 it's finally removed from the core class libraries. A work has been done to replace it with a [NrbfDecoder](https://github.com/dotnet/runtime/pull/103232) to handle reading of pre-existing data. As part of the prototyping for the `NrbfDecoder` API shape the usage has been validated on WinForms use cases. `TypeConverter`s depend on reflection and the NativeAOT compiler doesn't have intrinsic understanding of the WinForms framework necessary to figure out which types are going to be accessed by the reflection-based logic. The solution to this problem is described in detail in the [TypeDescriptor-related trimming support issue](https://github.com/dotnet/runtime/issues/101202).
 
