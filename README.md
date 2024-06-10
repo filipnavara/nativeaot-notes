@@ -34,9 +34,9 @@ Fundamentally, this work is benefiting not just NativeAOT but also the MonoVM AO
 
 ### WinForms
 
-WinForms and NativeAOT are not an officially supported scenario yet. There is an ongoing effort to remove the blockers. The scope of the work is rather wide though and it's been spaning multiple releases.
+WinForms and NativeAOT are not an officially supported scenario yet. There is an [ongoing effort to remove the blockers](https://github.com/dotnet/winforms/issues/4649). The scope of the work is rather wide though and it's been spaning multiple releases.
 
-One of the issues is that the framework relies on non-string resources. These are either deserialized using the binary formatter or the `TypeConverter`s (part of System.ComponentModel). Both approaches are problematic for different reasons. Binary formatter is going through deprecation cycle over last few .NET releases. In .NET 9 it's finally removed from the core class libraries. A work has been done to replace it with a [NrbfDecoder](https://github.com/dotnet/runtime/pull/103232) to handle reading of pre-existing data. As part of the prototyping for the `NrbfDecoder` API shape the usage has been validated on WinForms use cases. `TypeConverter`s depend on reflection and the NativeAOT compiler doesn't have intrinsic understanding of the WinForms framework necessary to figure out which types are going to be accessed by the reflection-based logic. The solution to this problem is described in detail in the [TypeDescriptor-related trimming support issue](https://github.com/dotnet/runtime/issues/101202).
+[One of the issues](https://github.com/dotnet/winforms/issues/10813) is that the framework relies on non-string resources. These are either deserialized using the binary formatter or the `TypeConverter`s (part of System.ComponentModel). Both approaches are problematic for different reasons. Binary formatter is going through deprecation cycle over last few .NET releases. In .NET 9 it's finally removed from the core class libraries. A work has been done to replace it with a [NrbfDecoder](https://github.com/dotnet/runtime/pull/103232) to handle reading of pre-existing data. As part of the prototyping for the `NrbfDecoder` API shape the usage has been validated on WinForms use cases. `TypeConverter`s depend on reflection and the NativeAOT compiler doesn't have intrinsic understanding of the WinForms framework necessary to figure out which types are going to be accessed by the reflection-based logic. The solution to this problem is described in detail in the [TypeDescriptor-related trimming support issue](https://github.com/dotnet/runtime/issues/101202).
 
 Second issue is the dependency on COM interop for features like accessibility or open/save dialogs. NativeAOT doesn't support the traditional COM interop with class attributes that was present in .NET since the inception. Instead, it depends on a more modern [ComWrappers API](https://learn.microsoft.com/en-us/dotnet/standard/native-interop/tutorial-comwrappers) introduced in .NET 5. Early pioneering work on the new WinForms COM interop was done by [Andrii Kurdiumov](https://github.com/kant2002) and he has written [informative blog posts](https://codevision.medium.com/using-com-in-nativeaot-131dbc0d559e) about it. This is currently an area of focus in .NET 9.
 
@@ -52,16 +52,56 @@ experimental NativeAOT/iOS support.
 
 ## Platform support
 
-TODO
+For the desktop part of the application, we publish for the osx-arm64, osx-x64, and win-x86 runtime identifiers. The macOS support was added in .NET 8, while the Windows x86 support only landed in usable form in .NET 9 Preview 4.
 
-OS:
-- macOS (.NET 8), MSR, ILLink behavior differences (TypeForwardedTo)
-- win-x86 (.NET 9 Preview 5)
+### macOS
 
-Processors
+Early in the .NET 8 product cycle we resurrected the existing bits of the macOS support in NativeAOT. This work was soon followed by [Austin Wise](https://github.com/AustinWise) adding support for Objective-C interop API. This was soon picked up by the .NET and Xamarin.iOS teams and extended to support the platform including the full iOS/macOS API bindings which were previously only available in CoreCLR and MonoVM.
 
-ARM[64], branch limits, linker
-X86 is odd, exception handling
+As part of the NativeAOT/iOS bring-up few important technologies like [Managed Static Registrar](https://github.com/xamarin/xamarin-macios/blob/main/docs/managed-static-registrar.md) were developed that were crucial to get an application of this size running. Notably, these improvements also significantly helped performance of interop scenarios on other runtimes.
+
+One peculiar thing about the macOS support in NativeAOT is that if you target the `net8.0-macos` framework the build process includes an extra ILLink step. The responsibilities of ILLink and NativeAOT overlap in many ways. They both do trimming but they slight behavioral differences that may be observable in some scenarios. We hit one such difference on our macOS version of the System.Drawing library. The library itself is an automatically generated type forwarder. All the implementations of the drawing primitives live in System.Drawing.Common or System.Drawing.Primitives libraries. Why is the System.Drawing library necessary at all then? To answer that we need to go back to the WinForms section above. The resource files reference .NET types by name. For example, you may encounter something like this in the .resx file:
+
+```xml
+  <data name="user_gray" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>../Resources/user_gray.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+```
+
+The referenced type is in the System.Drawing assembly. The assembly is auto-generated and it contains a code similar to:
+
+```csharp
+[assembly: TypeForwardedTo(typeof(System.Drawing.Bitmap))]
+```
+
+That in turns forwards to the actual implementation in System.Drawing.Common:
+
+```csharp
+	[System.Runtime.CompilerServices.TypeForwardedFrom("System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a")]
+	public sealed class Bitmap : Image { ... }
+
+	[TypeConverter(typeof(ImageConverter))]
+	[System.Runtime.CompilerServices.TypeForwardedFrom("System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a")]
+	public abstract class Image : MarshalByRefObject, IDisposable , ICloneable, ISerializable { ... }
+```
+
+If you didn't skip the WinForms section, you likely see what is going on. At runtime, the resource deserialization needs to resolve the type name into a type. It then examines the attributes on the type, and finds the `TypeConverter` attribute. This tells it to instantiate the `ImageConverter` class and finally use that to interpret the data in the resources.
+
+Now, let's get back to the ILLink and NativeAOT little difference. ILLink strips the `TypeForwardedTo` annotations from the trimmed assemblies. The intention is good. As far as ILLink is concerned, all the references to `Bitmap` in the code are rewritten to the real implementation assembly, and so the attribute is no longer needed. It doesn't have the intrinsic knowledge of the resource resolution logic, and hence doesn't see that it will still be required at runtime. NativeAOT seems to keep the information about forwarded types though.
+
+The build process for `net8.0-macos` runs the ILLink first and then pipes the output into NativeAOT compiler. This has the unfortunate side effect of losing the the `TypeForwardedTo` attributes. The fix is adding a simple `<TrimmerRootAssembly Include="System.Drawing" />` item into the main project and we can move on.
+
+### Windows
+
+TODO: .NET 9 Preview 5
+
+### ARM processors
+
+TODO: ARM[64], branch limits, linker
+
+### X86 oddities
+
+TODO: X86 is odd, exception handling
 
 ## Main project
 
