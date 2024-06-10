@@ -56,9 +56,25 @@ in [this section](https://github.com/filipnavara/nativeaot-notes/blob/main/third
 
 Next up, we devised strategies on how to deal with [third-party libraries](https://github.com/filipnavara/nativeaot-notes/blob/main/third-party-libraries.md).
 
+TODO: Easy investment, helps with MonoAOT on iOS too
+
 ## UI frameworks
 
+TODO: WinForms, [Intercepforms experiment](https://github.com/emclient/Intercepforms)
+
 ## Platform support
+
+TODO
+
+
+OS:
+- macOS (.NET 8), MSR, ILLink behavior differences (TypeForwardedTo)
+- win-x86 (.NET 9 Preview 5)
+
+Processors
+
+ARM[64], branch limits, linker
+X86 is odd, exception handling
 
 ## Main project
 
@@ -73,3 +89,5 @@ is going on, and we will try to answer at least part of that.
 Let's talk about [ILC CPU and memory usage](https://github.com/filipnavara/nativeaot-notes/blob/main/ilc-resource-usage.md).
 
 Interested in reducing the size of the compiled app? Check out [Sizoscope](https://github.com/MichalStrehovsky/sizoscope).
+
+TODO: Size overall, 700+MB -> 250-270MB

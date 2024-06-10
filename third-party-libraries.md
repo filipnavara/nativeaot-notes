@@ -74,7 +74,46 @@ extension methods also come with overloads that include the `JsonTypeInfo<T>` pa
 
 ### XML serialization and deserialization
 
-TODO: Write about hand-written serialization and how to use SGen
+There's currently no source generator for XML serializers like there's one for JSON. The 
+options to handle the sitation are limited. We employed two different approaches to handle 
+the problem. In some cases the easiest way is to hand write the serialization using the 
+`XmlReader`/`XmlWriter` classes. In other cases we crafted a way to use the SGen tools to 
+generate the (de)serialization code automatically with minimal refactoring.
+
+For the hand-written parts we took the approach of implementing the `IXmlSerializable` on 
+each class. The interface comes with three methods - `ReadXml(XmlReader)`, `WriteXml(XmlWriter)`, 
+and `XmlSchema GetSchema()`. For our purposes the last method is irrelevant and can just 
+return `null`. The other two methods then implement strongly typed (de)serialization that 
+can be called instead of `XmlSerializer.[De]Serialize`.
+
+In cases where the amount of XML was too big for the hand-written approach we devised a 
+clever trick to use SGen to generate the code and embed it. For those of you not familiar 
+with SGen, it is a tool that was available since .NET Framework to pregenerate serialization 
+code for `XmlSerializer`. In modern .NET it's now available in the [Microsoft.XmlSerializer.Generator](https://www.nuget.org/packages/Microsoft.XmlSerializer.Generator) NuGet package. Unfortunately, 
+the way the generator works and the output is consumed is not AOT friendly. The generator 
+takes a managed .dll as an input, produces a .cs file with the serialization code, and then 
+compiles the .cs file into another auxiliary .dll that ships alongside the application. At 
+runtime the `XmlSerializer` looks if this auxiliary .dll is available and loads it and calls 
+into it to perform the serialization. Since NativeAOT doesn't allow dynamic assembly loading 
+this is a non-starter.
+
+In order to use SGen we need to restructure the code a bit and then use a couple of MSBuild 
+tricks to automate everything. The first step is to split the classes that we want to 
+(de)serialize into separate .cs files. In case there's some attached code logic the recommened 
+approach is to use `partial` classes and split the logic into its own file. Once we are done 
+with that, add a new `<ItemGroup>` into the project and list all the files with the pure 
+serialization classes inside as `<SgenCompile Include="MyDataClass.cs">`. Finally, add the 
+[MSBuild magic](XmlSerializerGenerator.targets) with `<Import Project="XmlSerializerGenerator.targets" />`  
+and make sure that you have the copy of [XmlSerializerGenerator.targets](XmlSerializerGenerator.targets) 
+alongside the project.
+
+What does the MSBuild magic do? Good question, it builds a small .dll file just from the 
+source files listed in the `SgenCompile` item group. It then proceeds to run SGen on it and 
+takes the .cs file from the output. The .cs file gets fixed up to address some warnings and 
+then it gets included into a compile item for the main project. For example, if you had a 
+`MyDataClass` class then you will get a `MyDataClassSerializer` generated class. The new 
+`MyDataClassSerializer` class can now be used in place of `XmlSerializer`. This will 
+still generate code that produces AOT warnings but those can be ignored with a local suppression.
 
 ## Alternative AOT-safe libraries
 
@@ -111,4 +150,19 @@ hand-written in the [Google provided client libraries](https://github.com/google
 
 ## Consuming AOT-unsafe libraries
 
-TODO: Trimming rooting, descriptors, dynamic code, COM, etc.
+There are multiple workarounds that you can use for AOT unsafe libraries, but most of 
+them are out of scope for this document.
+
+For cases where excessive code trimming is a problem or fields/methods are accessed by 
+reflection, you can instruct the compiler to root additional assemblies, classes, fields, 
+or methods. The way to do so is to add them as trimming roots to the main project with
+`TrimmerRootAssembly` or `TrimmerRootDescriptor`. This is described in the [ILLink documentation](https://github.com/dotnet/runtime/blob/7ffb9a44ab32cd96d5684c1560671695535ae2cb/docs/tools/illink/illink-tasks.md).
+
+Some technologies, like COM interop on Windows, can be augmented for existing libraries 
+without modifying them. For an example of this approach, see the [WinFormsComInterop project](https://github.com/kant2002/WinFormsComInterop).
+
+Libraries that require dynamic assembly loading or rely on dynamic code generarion are 
+fundamentally incompatible with NativeAOT. If you heavily rely on those and have no 
+alternative, then technologies like CoreCLR ReadyToRun or MonoVM may be a better fit. 
+Both of them offer partial AOT augmented by JIT or interpreter to handle the dynamic code.
+

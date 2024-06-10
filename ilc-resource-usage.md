@@ -54,3 +54,12 @@ rewrite was to remove the LLVM dependency and to use memory more efficiently. Th
 achieved that by removing significant amount of memory copying, and improved management of 
 relocation tables. It also allows a more fine grained control of the finicky details of 
 some object file formats that can be used for further optimizations.
+
+The object writer supports three general object file formats - COFF (Windows), Mach-O (macOS), 
+and ELF (Linux, FreeBSD). The general structure of the object file format is pretty similar 
+across the formats even though the on-disk structure is different.
+
+TODO: Unwind tables, compact unwind tables, 24M limitation, lack of compact unwinding on
+macOS and WinARM64
+
+TODO: Experiment with scaling by parallelization of GetData
