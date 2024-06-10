@@ -98,7 +98,7 @@ the reflection-based serialization in the underlying JSON library. It is essenti
 use the latest version of Kiota libraries though, since AOT specific issues were fixed 
 there.
 
-As a proof of concept, we built a subset of [subset of Google API Client SDK](https://github.com/emclient/Google.Apis.Kiota) 
+As a proof of concept, we built a [subset of Google API Client SDK](https://github.com/emclient/Google.Apis.Kiota) 
 using Microsoft Kiota. The Google Discovery API definitions are first converted into 
 OpenAPI. Then the `yq` tool is used to patch up any problematic spot in the OpenAPI
 definition file. Lastly, Kiota is used to generate the client API libraries that are 
