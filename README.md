@@ -76,3 +76,4 @@ Let's talk about [ILC CPU and memory usage](https://github.com/filipnavara/nativ
 Interested in reducing the size of the compiled app? Check out [Sizoscope](https://github.com/MichalStrehovsky/sizoscope).
 
 TODO: Size overall, 700+MB -> 250-270MB
+TODO: Size variation between macOS/Windows - libs, but also prolog+epilog on ARM leaf functions
