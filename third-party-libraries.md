@@ -76,6 +76,39 @@ extension methods also come with overloads that include the `JsonTypeInfo<T>` pa
 
 TODO: Write about hand-written serialization and how to use SGen
 
+## Alternative AOT-safe libraries
+
+###  HTTP REST API SDKs
+
+A special mention is deserved for libraries that wrap HTTP REST APIs. These APIs often 
+come with machine readable description in the OpenAPI format or another JSON Schema 
+based specification.
+
+It's common to generate the client SDK for those APIs through an automated generator. 
+There are multiple such generators ([NSwag](https://github.com/RicoSuter/NSwag), 
+[AutoRest](https://github.com/Azure/autorest), [Refit](https://github.com/reactiveui/refit),
+[Microsoft Kiota](https://github.com/microsoft/kiota), and several others). Notably,
+these generators differ in the additional dependencies (eg. Newtonsoft.Json vs
+System.Text.Json) and various implementation details. Some generators are more suitable 
+for AOT than others.
+
+Microsoft Kiota seems to work quite well in the AOT scenarios since serialization and 
+deserialization code is generated as strongly typed source code. It doesn't depend on 
+the reflection-based serialization in the underlying JSON library. It is essential to 
+use the latest version of Kiota libraries though, since AOT specific issues were fixed 
+there.
+
+As a proof of concept, we built a subset of [subset of Google API Client SDK](https://github.com/emclient/Google.Apis.Kiota) 
+using Microsoft Kiota. The Google Discovery API definitions are first converted into 
+OpenAPI. Then the `yq` tool is used to patch up any problematic spot in the OpenAPI
+definition file. Lastly, Kiota is used to generate the client API libraries that are 
+published as NuGet. All of this is scripted using GitHub Actions to ensure an updated 
+SDK can be produced seamlessly when the Google API is updated. We tested replacing 
+the Google provided SDK for Gmail, Google Calendar, Google Tasks, Google Drive APIs 
+in [eM Client](https://www.emclient.com/) and it was mostly seamless. The only 
+problematic part were the resumable upload APIs for Google Drive which are also 
+hand-written in the [Google provided client libraries](https://github.com/googleapis/google-api-dotnet-client).
+
 ## Consuming AOT-unsafe libraries
 
 TODO: Trimming rooting, descriptors, dynamic code, COM, etc.
