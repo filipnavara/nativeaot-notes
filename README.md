@@ -72,4 +72,4 @@ is going on, and we will try to answer at least part of that.
 
 Let's talk about [ILC CPU and memory usage](https://github.com/filipnavara/nativeaot-notes/blob/main/ilc-resource-usage.md).
 
-TODO: Sizoscope
+Interested in reducing the size of the compiled app? Check out [Sizoscope](https://github.com/MichalStrehovsky/sizoscope).
