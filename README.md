@@ -93,15 +93,20 @@ The build process for `net8.0-macos` runs the ILLink first and then pipes the ou
 
 ### Windows
 
-TODO: .NET 9 Preview 5
+32-bit support for ILC targets was only added in .NET 9 Preview 5, as previously stated. We produce the x86 binaries for variety of reason but the biggest one being the burden of distributing the Chromium Embedded Framework which we use for displaying HTML content. Other apps may have similar requirements to produce 32-bit binaries to consume external libraries, or to build components that run inside 32-bit contexts.
 
-### ARM processors
+Unlike CoreCLR (as of .NET 9 Preview 5), the NativeAOT port for win-x86 uses funclet based exception handling instead of the legacy SEH code. The funclet exception handling was easier to implement in the NativeAOT runtime because it shares code with most of the other targets. 
+As exception handling is largely rewritten in CoreCLR for .NET 9 to bring it closer to NativeAOT and to improve performance, it's likely that in the future this topic will be revisited and the approaches unified. CoreCLR historically offers interoperabilty with SEH exceptions thrown in interop scenarios while NativeAOT never supported this. This may prove to be a challenge in any future unification endeavours.
 
-TODO: ARM[64], branch limits, linker
+### Undocumented limits
 
-### X86 oddities
+One thing of note is that non-X86/X64 platforms often come with some limits imposed by the instruction set. While in most cases this is handled transparently to the developer there are cases where one needs to be aware of those limits. Due to tooling bugs these limits may result in user-visible errors, degraded performance or larger executable file size.
 
-TODO: X86 is odd, exception handling
+A good example of such limit are the relative branches in the generated code. Notably, ARM64 has +/- 128 MiB limit for those branches and ARM32 has +- 16 MiB limit in the Thumb2 instruction encoding. Any longer branch in the code needs to be encoded with different set of instructions, or handled through a thunk. Thunk, in this case, is a piece of code that's within the relative code location limit and that contains the longer jump sequence. These thunks are typically produced by the platform linker but in some cases the compiler can generate them too. ILC, the NativeAOT compiler, currently doesn't generate them at the expense of generating more pessimistic code.
+
+Another set of limits is imposed by the object file format - eg. section sizes or file offset represented using 32-bit data types - limiting the output executable size to roughly 2 GiB. These limits differ by platform and the 2 GiB figure is not perfectly accurate but it's a good ballpark figure.
+
+Lastly, one undocumented limit is the size of the unwinding section on Apple platforms (macOS/iOS/tvOS). The unwinding section is used for exception handling, producing stack traces, and for garbage collection. We will talk about this particular limit later in the section dedicated to [Object Writer](ilc-resource-usage.md#object-file-emitting).
 
 ## Main project
 

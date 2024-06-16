@@ -75,7 +75,7 @@ extension methods also come with overloads that include the `JsonTypeInfo<T>` pa
 ### XML serialization and deserialization
 
 There's currently no source generator for XML serializers like there's one for JSON. The 
-options to handle the sitation are limited. We employed two different approaches to handle 
+options to handle the sitation are limited. We employed <strike>two</strike>three different approaches to handle 
 the problem. In some cases the easiest way is to hand write the serialization using the 
 `XmlReader`/`XmlWriter` classes. In other cases we crafted a way to use the SGen tools to 
 generate the (de)serialization code automatically with minimal refactoring.
@@ -86,6 +86,7 @@ and `XmlSchema GetSchema()`. For our purposes the last method is irrelevant and 
 return `null`. The other two methods then implement strongly typed (de)serialization that 
 can be called instead of `XmlSerializer.[De]Serialize`.
 
+<strike>
 In cases where the amount of XML was too big for the hand-written approach we devised a 
 clever trick to use SGen to generate the code and embed it. For those of you not familiar 
 with SGen, it is a tool that was available since .NET Framework to pregenerate serialization 
@@ -114,6 +115,12 @@ then it gets included into a compile item for the main project. For example, if 
 `MyDataClass` class then you will get a `MyDataClassSerializer` generated class. The new 
 `MyDataClassSerializer` class can now be used in place of `XmlSerializer`. This will 
 still generate code that produces AOT warnings but those can be ignored with a local suppression.
+</strike>
+
+It turns out that the `XmlSerializer` still depends on reflection even for the source generated 
+mapping due to how it internally handles `Mode`. ILLink annotations may be the only way to 
+workaround it for now, and at that point there's very little benefit to using the pregenerated 
+serializers.
 
 ## Alternative AOT-safe libraries
 
