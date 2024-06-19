@@ -16,7 +16,7 @@ At the forefront, there is a desktop frontend written in the WinForms toolkit wi
 
 There's also a mobile frontend written in Xamarin.Forms / .NET MAUI (at the time of this writing the upgrade is still in progress; both builds run on .NET 8 though). This frontend currently only comes with the email related funcionality.
 
-Rest of the code base is shared between the desktop and mobile versions. There's 150+ projects covering different areas, such as data storage, data synchronization, various protocols (ranging from TCP-based SMTP, IMAP and POP3 to JSON/XML-over-HTTP based ones), and also many file format parsers (EML, PST, iCalendar, dozen of other proprietary formats for import).
+Rest of the code base is shared between the desktop and mobile versions. There're 150+ projects covering different areas, such as data storage, data synchronization, various protocols (ranging from TCP-based SMTP, IMAP and POP3 to JSON/XML-over-HTTP based ones), and also many file format parsers (EML, PST, iCalendar, dozen of other proprietary formats for import).
 
 The code base also depends on many 3rd-party SDKs, such as those for [Microsoft Graph](https://github.com/microsoftgraph/msgraph-sdk-dotnet), [Google Workspace](https://github.com/googleapis/google-api-dotnet-client), and others.
 
